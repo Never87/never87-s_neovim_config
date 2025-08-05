@@ -1,0 +1,442 @@
+local function cerr(msg)
+    io.stderr:write("\27[31m[ERROR][Never87] >" .. msg .. "\27[0m\n")
+end
+
+local function cwarn(msg)
+  io.stderr:write("\27[33m[WARN][Never87] >" .. msg .. "\27[0m\n")
+end
+
+local function ensure_mason()
+  local mason_status, mason = pcall(require, "mason")
+  if not mason_status then
+    cwarn("Mason not available. Installing now...")
+    vim.cmd([[packadd mason.nvim]])
+    mason = require("mason")
+  end
+  
+  mason.setup({
+    ui = {
+      icons = {
+        package_installed = "✓",
+        package_pending = "➜",
+        package_uninstalled = "✗"
+      }
+    },
+    -- 添加国内镜像源加速下载
+    registries = {
+      "https://github.com/orgs/neovim-packages/repositories?per_page=100",
+      "https://gitee.com/mirrors/nvim-packages"  -- 国内镜像
+    }
+  })
+  
+  local mason_lsp_status, mason_lsp = pcall(require, "mason-lspconfig")
+  if not mason_lsp_status then
+    cwarn("mason-lspconfig not available. Installing now...")
+    vim.cmd([[packadd mason-lspconfig.nvim]])
+    mason_lsp = require("mason-lspconfig")
+  end
+  
+  mason_lsp.setup({
+    ensure_installed = { "clangd", "pyright", "lua_ls" },
+    automatic_installation = true,
+  })
+  
+  return mason, mason_lsp
+end
+
+local lazypath = vim.fn.stdpath("data") .. "\\lazy\\lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+    cwarn("no valiable lazyvim packer, prepare for downloading...")
+    vim.fn.system({
+        "git",
+        "clone",
+        "--filter=blob:none",
+        "https://github.com/folke/lazy.nvim.git",
+        "--branch=stable",
+        lazypath,
+    })
+end
+vim.opt.rtp:prepend(lazypath) 
+
+vim.opt.tabstop = 4 
+vim.opt.shiftwidth = 4 
+vim.opt.expandtab = true 
+
+vim.opt.number = true
+vim.opt.relativenumber = true
+vim.opt.termguicolors = true
+
+vim.g.mapleader = " "
+
+require("lazy").setup({
+    -- 放入插件
+    -- theme
+    {
+        "scottmckendry/cyberdream.nvim",
+        lazy = false,
+        priority = 1000,
+    },
+
+    -- treesitter parser
+    { "nvim-treesitter/nvim-treesitter", build = ":TSUpdate" },
+
+    { 
+        "danymat/neogen", 
+        config = true,
+        -- Uncomment next line if you want to follow only stable versions
+        -- version = "*" 
+    },
+
+    {
+    'nvim-telescope/telescope.nvim', tag = '0.1.8',
+-- or                              , branch = '0.1.x',
+      dependencies = { 'nvim-lua/plenary.nvim' }
+    },
+
+    {
+      "neovim/nvim-lspconfig", -- 官方 LSP 支持
+      "williamboman/mason.nvim", -- 安装语言服务器
+      "williamboman/mason-lspconfig.nvim", -- 自动桥接 mason + lspconfig
+      config = function()
+        local mason, mason_lsp = ensure_mason()
+
+        -- 添加Mason命令以便手动管理
+        vim.api.nvim_create_user_command("MasonInstallAll", function()
+          vim.cmd("MasonInstall clangd pyright lua_ls")
+        end, {})
+
+        require("mason").setup()
+        require("mason-lspconfig").setup({
+          ensure_installed = { "clangd", "pyright", "lua_ls" }, -- 自动安装这些语言服务器
+          automatic_installation = true,
+        })
+
+        local lspconfig = require("lspconfig")
+        local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
+        local servers = {
+          clangd = {
+            cmd = { "clangd" },
+            filetypes = { "c", "cpp" },
+          },
+          pyright = {},
+          lua_ls = {
+            settings = {
+              Lua = {
+                diagnostics = { globals = { "vim" } }
+              }
+            }
+          }
+        }
+
+        -- 设置 clangd（C/C++）
+        lspconfig.clangd.setup({
+          cmd = { "clangd" },
+          filetypes = { "c", "cpp", "objc", "objcpp" },
+          root_dir = lspconfig.util.root_pattern("compile_commands.json", "compile_flags.txt", ".git"),
+        })
+
+        -- 设置 pyright（Python）
+        lspconfig.pyright.setup({})
+
+        -- 设置 lua_ls（Neovim Lua）
+        lspconfig.lua_ls.setup({
+          settings = {
+            Lua = {
+              diagnostics = {
+                globals = { "vim" }, -- 不报 vim 未定义
+              },
+            },
+          },
+        })
+
+        mason_lsp.setup_handlers({
+          function(server_name)
+            lspconfig[server_name].setup({
+              capabilities = capabilities,
+              settings = servers[server_name] and servers[server_name].settings or nil,
+              filetypes = servers[server_name] and servers[server_name].filetypes or nil,
+              cmd = servers[server_name] and servers[server_name].cmd or nil
+            })
+          end
+        })
+      end
+    },
+
+    {
+      "nvim-tree/nvim-tree.lua",
+      version = "*",
+      dependencies = {
+        "nvim-tree/nvim-web-devicons", -- 图标支持（可选但推荐）
+      },
+      config = function()
+        require("nvim-tree").setup({
+          view = {
+            width = 30,
+            relativenumber = true,
+          },
+          renderer = {
+            group_empty = true,
+          },
+          filters = {
+            dotfiles = false,
+          },
+        })
+
+        -- 快捷键：<leader>e 打开/关闭文件树
+        vim.keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>", { desc = "Toggle File Tree" })
+      end,
+    },
+
+    {
+      "nvim-lualine/lualine.nvim",
+      dependencies = { "nvim-tree/nvim-web-devicons" },
+      config = function()
+      require("lualine").setup({
+        options = {
+          theme = "auto", -- 或者 "tokyonight", 看你配色
+        },
+      })
+      end,
+    },
+
+    {
+      "hrsh7th/nvim-cmp",
+      dependencies = {
+        "onsails/lspkind.nvim",
+        "hrsh7th/cmp-nvim-lsp",     -- LSP 补全源
+        "hrsh7th/cmp-buffer",       -- buffer 补全源
+        "hrsh7th/cmp-path",         -- 文件路径补全
+        "hrsh7th/cmp-cmdline",      -- 命令行补全
+        "L3MON4D3/LuaSnip",         -- Snippet 引擎
+        "saadparwaiz1/cmp_luasnip", -- Snippet 补全源
+        "rafamadriz/friendly-snippets" -- 常用代码片段库（可选）
+      },
+      config = function()
+        local cmp = require("cmp")
+        local luasnip = require("luasnip")
+        local lspkind = require("lspkind")
+
+        require("luasnip.loaders.from_vscode").lazy_load()
+
+        cmp.setup({
+          formatting = {
+            format = lspkind.cmp_format({
+              mode = "symbol_text",
+              maxwidth = 50,
+              ellipsis_char = "..."
+            }),
+          },
+          snippet = {
+            expand = function(args)
+              luasnip.lsp_expand(args.body)
+            end,
+          },
+          window = {
+            completion = cmp.config.window.bordered(),
+            documentation = cmp.config.window.bordered(),
+          },    
+          mapping = cmp.mapping.preset.insert({
+            ["<C-b>"] = cmp.mapping.scroll_docs(-4),
+            ["<C-f>"] = cmp.mapping.scroll_docs(4),
+            ["<C-Space>"] = cmp.mapping.complete(),
+            ["<C-e>"] = cmp.mapping.abort(),
+            ["<CR>"] = cmp.mapping.confirm({ select = true }),
+            ["<Tab>"] = cmp.mapping(function(fallback)
+              if cmp.visible() then
+                cmp.select_next_item()
+              elseif luasnip.expand_or_jumpable() then
+                luasnip.expand_or_jump()
+              else
+                fallback()
+              end
+            end, { "i", "s" }),
+
+            ["<S-Tab>"] = cmp.mapping(function(fallback)
+              if cmp.visible() then
+                cmp.select_prev_item()
+              elseif luasnip.jumpable(-1) then
+                luasnip.jump(-1)
+              else
+                fallback()
+              end
+            end, { "i", "s" }),
+          }),
+          sources = cmp.config.sources({
+            { name = "nvim_lsp" },
+            { name = "luasnip" },
+            { name = "buffer" },
+            { name = "path" },
+          }),
+        })
+      end,
+    },
+
+    {
+        "lukas-reineke/indent-blankline.nvim",
+        main = "ibl",
+        opts = {},
+    },  
+})
+
+require("cyberdream").setup({
+    -- Set light or dark variant
+    variant = "default", -- use "light" for the light variant. Also accepts "auto" to set dark or light colors based on the current value of `vim.o.background`
+
+    -- Enable transparent background
+    transparent = false,
+
+    -- Reduce the overall saturation of colours for a more muted look
+    saturation = 1, -- accepts a value between 0 and 1. 0 will be fully desaturated (greyscale) and 1 will be the full color (default)
+
+    -- Enable italics comments
+    italic_comments = false,
+
+    -- Replace all fillchars with ' ' for the ultimate clean look
+    hide_fillchars = true,
+
+    -- Apply a modern borderless look to pickers like Telescope, Snacks Picker & Fzf-Lua
+    borderless_pickers = true,
+
+    -- Set terminal colors used in `:terminal`
+    terminal_colors = true,
+
+    -- Improve start up time by caching highlights. Generate cache with :CyberdreamBuildCache and clear with :CyberdreamClearCache
+    cache = false,
+
+    -- Override highlight groups with your own colour values
+    highlights = {
+        -- Highlight groups to override, adding new groups is also possible
+        -- See `:h highlight-groups` for a list of highlight groups or run `:hi` to see all groups and their current values
+
+        -- Example:
+        Comment = { fg = "#696969", bg = "#ffffff", italic = true },
+
+        -- More examples can be found in `lua/cyberdream/extensions/*.lua`
+    },
+
+    -- Override a highlight group entirely using the built-in colour palette
+    overrides = function(c) -- NOTE: This function nullifies the `highlights` option
+        -- Example:
+        return {
+            Normal = { bg = c.bg },
+            CursorLine = { bg = c.bg_highlight },
+            Visual = { bg = c.magenta, fg = c.bg, bold = true },
+            StatusLine = { fg = c.cyan, bg = c.bg_alt, bold = true },
+            WinSeparator = { fg = c.fg },
+            Comment = { fg = c.comment, italic = true },
+            ["@function"] = { fg = c.cyan, bold = true },
+            ["@property"] = { fg = c.magenta, bold = true },
+            NormalFloat = { bg = c.bg_alt },
+        }
+    end,
+
+    -- Override colors
+    -- colors = {
+    --     -- For a list of colors see `lua/cyberdream/colours.lua`
+
+    --     -- Override colors for both light and dark variants
+    --     bg = "#000000",
+    --     green = "#00ff00",
+
+    --     -- If you want to override colors for light or dark variants only, use the following format:
+    --     dark = {
+    --         magenta = "#ff00ff",
+    --         fg = "#eeeeee",
+    --     },
+    --     light = {
+    --         red = "#ff5c57",
+    --         cyan = "#5ef1ff",
+    --     },
+    -- },
+
+    -- Disable or enable colorscheme extensions
+    extensions = {
+        telescope = true,
+        notify = true,
+        mini = true,
+    },
+})
+
+
+-- treesitter parser
+require("nvim-treesitter.configs").setup({
+  ensure_installed = { "lua", "cpp", "python", "c", "bash" }, -- 指定语言
+  auto_install = true,       -- 自动安装缺失的 parser
+  highlight = {
+    enable = true,           -- 启用语法高亮
+  },
+  indent = {
+    enable = true,           -- 启用语法缩进
+  },
+})
+
+
+require('telescope').setup{
+  defaults = {
+    -- Default configuration for telescope goes here:
+    -- config_key = value,
+    mappings = {
+      i = {
+        -- map actions.which_key to <C-h> (default: <C-/>)
+        -- actions.which_key shows the mappings for your picker,
+        -- e.g. git_{create, delete, ...}_branch for the git_branches picker
+        ["<C-h>"] = "which_key"
+      }
+    }
+  },
+  pickers = {
+    -- Default configuration for builtin pickers goes here:
+    -- picker_name = {
+    --   picker_config_key = value,
+    --   ...
+    -- }
+    -- Now the picker_config_key will be applied every time you call this
+    -- builtin picker
+  },
+  extensions = {
+    -- Your extension configuration goes here:
+    -- extension_name = {
+    --   extension_config_key = value,
+    -- }
+    -- please take a look at the readme of the extension you want to configure
+  }
+}
+
+-- danymat/neogen
+
+local ngen = require('neogen')
+ngen.generate()
+local opts = { noremap = true, silent = true }
+vim.api.nvim_set_keymap("n", "<Leader>nf", ":lua require('neogen').generate()<CR>", opts)
+
+local opts = { noremap = true, silent = true }
+vim.api.nvim_set_keymap("n", "<Leader>nc", ":lua require('neogen').generate({ type = 'class' })<CR>", opts)
+
+ngen.setup({
+    snippet_engine = "nvim"
+})
+
+-- telescope
+local builtin = require('telescope.builtin')
+vim.keymap.set('n', '<leader>ff', builtin.find_files, { desc = 'Telescope find files' })
+vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = 'Telescope live grep' })
+vim.keymap.set('n', '<leader>fb', builtin.buffers, { desc = 'Telescope buffers' })
+vim.keymap.set('n', '<leader>fh', builtin.help_tags, { desc = 'Telescope help tags' })
+
+
+-- lsp 
+-- vim.lsp.enable('clangd');
+
+
+-- 设置主题，前提是要有
+local theme = "cyberdream"  -- [here]设置主题
+if type(theme) == "string" then
+    if theme == "" then
+        cwarn("there's no theme used here!")
+    else
+        vim.cmd.colorscheme(theme)
+    end
+else
+    cerr("value theme should be a string!!!")
+end

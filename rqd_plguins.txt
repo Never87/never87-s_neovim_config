@@ -1,0 +1,16 @@
+
+
+danymat/neogen
+
+nvim-telescope/telescope.nvim
+
+nvim-tree/nvim-tree.lua
+
+scottmckendry/cyberdream.nvim
+
+nvim-treesitter/nvim-treesitter
+
+nvim-lualine/lualine.nvim
+
+lukas-reineke/indent-blankline.nvim
+
