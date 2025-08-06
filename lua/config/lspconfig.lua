@@ -5,7 +5,7 @@ local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
 -- clangd (C, C++)
 lspconfig.clangd.setup({
-  capabilities = capabilities,
+    capabilities = capabilities,
 })
 
 -- Python
