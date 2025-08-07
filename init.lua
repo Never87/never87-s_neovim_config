@@ -1,3 +1,6 @@
+local config_path = vim.fn.stdpath('config') -- 返回 C:\Users\ckcol\AppData\Local\nvim
+
+package.path = package.path .. ';' .. config_path .. '/lua/?.lua;' .. config_path .. '/lua/?/init.lua'
 
 -- 加载lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "\\lazy\\lazy.nvim"
@@ -30,6 +33,7 @@ vim.opt.termguicolors = true
 vim.g.mapleader = " "
 
 require('lazy').setup("plugins")
+require("Never87.window").setup()
 
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
