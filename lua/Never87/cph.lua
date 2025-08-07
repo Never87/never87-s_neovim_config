@@ -79,7 +79,7 @@ end
 
 function M.count_tests()
   if vim.fn.isdirectory(tests_dir) == 0 then
-    perr("未找到tests文件夹（用来存放数据点）：" .. tests_dir)
+    p("未找到tests文件夹（用来存放数据点）：" .. tests_dir)
     return 0
   end
 
@@ -158,6 +158,8 @@ function M.run_test(test_num)
       output = output,
       expected = expected,
       error_output = errput,
+      is_re = (tonumber(code or 0) ~= 0) or (tonumber(signal or 0) ~= 0),
+      is_out_of_time_ = false
     }
   end
 
@@ -183,10 +185,28 @@ function M.run_test(test_num)
   end, 100, true)
 
   if not finished then
-    return false, "运行测试超时"
+    if not result then
+      result = {
+        pass = false,
+        code = nil,
+        signal = nil,
+        output = "",
+        expected = expected,
+        error_output = "",
+        is_re = false,
+        is_out_of_time_ = true
+      }
+    else
+      result.is_out_of_time_ = true
+    end
+    -- return false, "运行测试超时"
   end
 
-  return result.pass, result, input, result
+  if result then
+    return result.pass, result, input
+  else
+    return false, nil, input
+  end
 end
 
 function M.run_all_tests()
