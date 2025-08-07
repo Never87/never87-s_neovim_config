@@ -35,6 +35,8 @@ vim.g.mapleader = " "
 require('lazy').setup("plugins")
 require("Never87.window").setup()
 
+require("Never87.SimplePatches").setup()
+
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
