@@ -8,3 +8,4 @@ Emmm... This configuration achieves beautification of nvim and auto-completion a
 Some media below:
 展示：
 
+<img src = "./images/Screenshot 2025-08-07 164124.png" />
