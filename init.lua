@@ -32,6 +32,8 @@ vim.opt.termguicolors = true
 
 vim.g.mapleader = " "
 
+vim.o.updatetime = 10
+
 require('lazy').setup("plugins")
 require("Never87.window").setup()
 
@@ -171,5 +173,27 @@ function M.get_mode()
   
   return mode_data[1] .. "  " .. mode_data[2] .. "  %*"
 end
+
+-- 搜索高亮颜色：黄色底，黑色字
+vim.api.nvim_set_hl(0, "Search", { fg = "black", bg = "yellow" })
+
+-- 当前搜索匹配高亮颜色：青色底，黑色字
+vim.api.nvim_set_hl(0, "IncSearch", { fg = "black", bg = "cyan" })
+
+local map = vim.keymap.set
+local opts = { noremap = true, silent = true }
+
+-- Alt + 常用小范围移动 直接等同于 <C-o> + 该命令
+map('i', '<A-w>', '<C-o>w', opts)  -- 跳到下个单词开头
+map('i', '<A-b>', '<C-o>b', opts)  -- 跳到上个单词开头
+map('i', '<A-e>', '<C-o>e', opts)  -- 跳到单词结尾
+map('i', '<A-0>', '<C-o>0', opts)  -- 跳到行首
+map('i', '<A-^>', '<C-o>^', opts)  -- 跳到行首第一个非空字符
+map('i', '<A-$>', '<C-o>$', opts)  -- 跳到行尾
+map('i', '<A-h>', '<C-o>h', opts)  -- 左移一格
+map('i', '<A-l>', '<C-o>l', opts)  -- 右移一格
+map('i', '<A-j>', '<C-o>j', opts)  -- 下移一行
+map('i', '<A-k>', '<C-o>k', opts)  -- 上移一行
+
 
 return M
